@@ -4,8 +4,6 @@
 # This file is a part of < https://github.com/TeamUltroid/Ultroid/ >
 # PLease read the GNU Affero General Public License in
 # <https://www.github.com/TeamUltroid/Ultroid/blob/main/LICENSE/>.
-
-
 """
 ✘ Commands Available
 
@@ -27,12 +25,21 @@
     If added then all uploaded files will be placed here.
 """
 
-
 import os
 import time
 from datetime import datetime
 
-from . import *
+from pyUltroid.functions.gdrive import (
+    DoTeskWithDir,
+    authorize,
+    create_directory,
+    file_ops,
+    gsearch,
+    list_files,
+    upload_file,
+)
+
+from . import Redis, asst, downloader, eod, eor, get_string, ultroid_cmd
 
 TOKEN_FILE = "resources/auths/auth_token.txt"
 
@@ -42,7 +49,7 @@ TOKEN_FILE = "resources/auths/auth_token.txt"
 )
 async def files(event):
     if not os.path.exists(TOKEN_FILE):
-        return await eod(event, get_string("gdrive_6").format(asst.me.username))
+        return await eor(event, get_string("gdrive_6").format(asst.me.username), time=5)
     http = authorize(TOKEN_FILE, None)
     await eor(event, list_files(http))
 
@@ -53,7 +60,7 @@ async def files(event):
 async def _(event):
     mone = await eor(event, get_string("com_1"))
     if not os.path.exists(TOKEN_FILE):
-        return await eod(mone, get_string("gdrive_6").format(asst.me.username))
+        return await eor(mone, get_string("gdrive_6").format(asst.me.username), time=5)
     input_str = event.pattern_match.group(1)
     required_file_name = None
     start = datetime.now()
@@ -66,7 +73,7 @@ async def _(event):
                 reply_message.media.document,
                 mone,
                 dddd,
-                "Downloading...",
+                get_string("com_5"),
             )
             filename = downloaded_file_name.name
         except TypeError:
@@ -74,7 +81,7 @@ async def _(event):
                 "resources/downloads", reply_message.media
             )
         except Exception as e:
-            return await eod(mone, str(e), time=10)
+            return await eor(mone, str(e), time=10)
         end = datetime.now()
         ms = (end - start).seconds
         required_file_name = filename
@@ -87,30 +94,30 @@ async def _(event):
             end = datetime.now()
             ms = (end - start).seconds
             required_file_name = input_str
-            await mone.edit(f"Found `{input_str}` in {ms} seconds.")
+            await mone.edit(f"Found `{required_file_name}` in {ms} seconds.")
         else:
             return await eod(
                 mone,
                 "File Not found in local server. Give me a file path :((",
                 time=5,
             )
-    if required_file_name:
-        http = authorize(TOKEN_FILE, None)
-        file_name, mime_type = file_ops(required_file_name)
-        try:
-            g_drive_link = await upload_file(
-                http,
-                required_file_name,
-                file_name,
-                mime_type,
-                mone,
-                Redis("GDRIVE_FOLDER_ID"),
-            )
-            await mone.edit(get_string("gdrive_7").format(file_name, g_drive_link))
-        except Exception as e:
-            await mone.edit(f"Exception occurred while uploading to gDrive {e}")
-    else:
-        return await eod(mone, "`File Not found in local server.`", time=10)
+    if not required_file_name:
+        return await eor(mone, "`File Not found in local server.`", time=10)
+
+    http = authorize(TOKEN_FILE, None)
+    file_name, mime_type = file_ops(required_file_name)
+    try:
+        g_drive_link = await upload_file(
+            http,
+            required_file_name,
+            file_name,
+            mime_type,
+            mone,
+            Redis("GDRIVE_FOLDER_ID"),
+        )
+        await mone.edit(get_string("gdrive_7").format(file_name, g_drive_link))
+    except Exception as e:
+        await mone.edit(f"Exception occurred while uploading to gDrive {e}")
 
 
 @ultroid_cmd(
@@ -118,7 +125,7 @@ async def _(event):
 )
 async def sch(event):
     if not os.path.exists(TOKEN_FILE):
-        return await eod(event, get_string("gdrive_6").format(asst.me.username))
+        return await eor(event, get_string("gdrive_6").format(asst.me.username), time=5)
     http = authorize(TOKEN_FILE, None)
     input_str = event.pattern_match.group(1).strip()
     a = await eor(event, f"Searching for {input_str} in G-Drive.")
@@ -141,21 +148,21 @@ async def sch(event):
 )
 async def _(event):
     if not os.path.exists(TOKEN_FILE):
-        return await eod(mone, get_string("gdrive_6").format(asst.me.username))
+        return await eor(event, get_string("gdrive_6").format(asst.me.username), time=5)
     input_str = event.pattern_match.group(1)
-    if os.path.isdir(input_str):
-        http = authorize(TOKEN_FILE, None)
-        a = await eor(event, f"Uploading `{input_str}` to G-Drive...")
-        dir_id = await create_directory(
-            http,
-            os.path.basename(os.path.abspath(input_str)),
-            Redis("GDRIVE_FOLDER_ID"),
-        )
-        await DoTeskWithDir(http, input_str, event, dir_id)
-        dir_link = f"https://drive.google.com/folderview?id={dir_id}"
-        await eod(a, get_string("gdrive_7").format(input_str, dir_link))
-    else:
-        return await eod(event, f"Directory {input_str} does not seem to exist", time=5)
+    if not os.path.isdir(input_str):
+        return await eor(event, f"Directory {input_str} does not seem to exist", time=5)
+
+    http = authorize(TOKEN_FILE, None)
+    a = await eor(event, f"Uploading `{input_str}` to G-Drive...")
+    dir_id = await create_directory(
+        http,
+        os.path.basename(os.path.abspath(input_str)),
+        Redis("GDRIVE_FOLDER_ID"),
+    )
+    await DoTeskWithDir(http, input_str, event, dir_id)
+    dir_link = f"https://drive.google.com/folderview?id={dir_id}"
+    await eor(a, get_string("gdrive_7").format(input_str, dir_link), time=5)
 
 
 @ultroid_cmd(
@@ -166,6 +173,8 @@ async def _(event):
         folder_link = "https://drive.google.com/folderview?id=" + Redis(
             "GDRIVE_FOLDER_ID",
         )
-        await eod(event, "`Here is Your G-Drive Folder link : `\n" + folder_link)
+        await eor(
+            event, "`Here is Your G-Drive Folder link : `\n" + folder_link, time=5
+        )
     else:
-        await eod(event, "Set GDRIVE_FOLDER_ID with value of your folder id")
+        await eor(event, "Set GDRIVE_FOLDER_ID with value of your folder id", time=5)

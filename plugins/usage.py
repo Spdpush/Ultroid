@@ -4,7 +4,6 @@
 # This file is a part of < https://github.com/TeamUltroid/Ultroid/ >
 # PLease read the GNU Affero General Public License in
 # <https://www.github.com/TeamUltroid/Ultroid/blob/main/LICENSE/>.
-
 """
 ✘ Commands Available
 
@@ -20,23 +19,24 @@
 
 import math
 import shutil
+from random import choice
 
 import heroku3
 import psutil
 import requests
-from search_engine_parser.core.utils import get_rand_user_agent as grua
+from pyUltroid.functions import some_random_headers
 
-from . import *
+from . import Var, eor, get_string, humanbytes, udB, ultroid_cmd
 
 HEROKU_API = None
 HEROKU_APP_NAME = None
-
+heroku_api, app_name = Var.HEROKU_API, Var.HEROKU_APP_NAME
 try:
-    if Var.HEROKU_API and Var.HEROKU_APP_NAME:
-        HEROKU_API = Var.HEROKU_API
-        HEROKU_APP_NAME = Var.HEROKU_APP_NAME
-        Heroku = heroku3.from_key(Var.HEROKU_API)
-        app = Heroku.app(Var.HEROKU_APP_NAME)
+    if heroku_api and app_name:
+        HEROKU_API = heroku_api
+        HEROKU_APP_NAME = app_name
+        Heroku = heroku3.from_key(heroku_api)
+        app = Heroku.app(app_name)
 except BaseException:
     HEROKU_API = None
     HEROKU_APP_NAME = None
@@ -51,7 +51,7 @@ async def usage_finder(event):
         return await x.edit(simple_usage())
 
     if opt == "redis":
-        return await x.edit(redis_usage())
+        await x.edit(redis_usage())
     elif opt == "heroku":
         is_hk, hk = heroku_usage()
         await x.edit(hk)
@@ -86,11 +86,10 @@ def simple_usage():
 def heroku_usage():
     if HEROKU_API is None and HEROKU_APP_NAME is None:
         return False, "You do not use heroku, bruh!"
-    useragent = grua()
     user_id = Heroku.account().id
     headers = {
-        "User-Agent": useragent,
-        "Authorization": f"Bearer {Var.HEROKU_API}",
+        "User-Agent": choice(some_random_headers),
+        "Authorization": f"Bearer {heroku_api}",
         "Accept": "application/vnd.heroku+json; version=3.account-quotas",
     }
     her_url = f"https://api.heroku.com/accounts/{user_id}/actions/get-quota"
@@ -149,9 +148,7 @@ def heroku_usage():
 
 def redis_usage():
     x = 30 * 1024 * 1024
-    z = 0
-    for n in udB.keys():
-        z += udB.memory_usage(n)
+    z = sum(udB.memory_usage(n) for n in udB.keys())
     a = humanbytes(z) + "/" + humanbytes(x)
     b = str(round(z / x * 100, 3)) + "%"
     return f"**REDIS**\n\n**Storage Used**: {a}\n**Usage percentage**: {b}"
@@ -159,10 +156,6 @@ def redis_usage():
 
 def get_full_usage():
     is_hk, hk = heroku_usage()
-    if is_hk is False:
-        her = ""
-    else:
-        her = hk
+    her = "" if is_hk is False else hk
     rd = redis_usage()
-    msg = her + "\n\n" + rd
-    return msg
+    return her + "\n\n" + rd

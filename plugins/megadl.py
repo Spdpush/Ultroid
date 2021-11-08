@@ -13,18 +13,28 @@
 import time
 from datetime import datetime
 
-from . import *
+from . import (
+    HNDLR,
+    LOGS,
+    bash,
+    eor,
+    get_all_files,
+    get_string,
+    humanbytes,
+    os,
+    time_formatter,
+    ultroid_cmd,
+    uploader,
+)
 
 
 @ultroid_cmd(pattern="megadl ?(.*)")
 async def _(e):
     link = e.pattern_match.group(1)
-    if not os.path.isdir("mega"):
-        os.mkdir("mega")
-    else:
-        os.system("rm -rf mega")
-        os.mkdir("mega")
-    xx = await eor(e, f"Processing...\nTo Check Progress : `{HNDLR}ls mega`")
+    if os.path.isdir("mega"):
+        await bash("rm -rf mega")
+    os.mkdir("mega")
+    xx = await eor(e, f"{get_string('com_1')}\nTo Check Progress : `{HNDLR}ls mega`")
     s = datetime.now()
     x, y = await bash(f"megadl {link} --path mega")
     ok = get_all_files("mega")
@@ -32,7 +42,7 @@ async def _(e):
     c = 0
     for kk in ok:
         try:
-            res = await uploader(kk, kk, tt, xx, "Uploading...")
+            res = await uploader(kk, kk, tt, xx, get_string("com_6"))
             await e.client.send_file(
                 e.chat_id,
                 res,
@@ -55,4 +65,4 @@ async def _(e):
         e.chat_id,
         f"Downloaded And Uploaded Total - `{c}` files of `{humanbytes(size)}` in `{t}`",
     )
-    os.system("rm -rf mega")
+    await bash("rm -rf mega")

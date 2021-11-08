@@ -5,47 +5,48 @@
 # PLease read the GNU Affero General Public License in
 # <https://www.github.com/TeamUltroid/Ultroid/blob/main/LICENSE/>.
 
+"""
+✘ Commands Available -
+
+• `{i}queue`
+   List the songs in queue.
+
+• `{i}clearqueue`
+   Clear all queue in chat.
+"""
+
 from . import *
 
 
-@asst.on_message(
-    filters.command(["clearqueue", f"clearqueue@{vcusername}"])
-    & filters.user(VC_AUTHS())
-    & ~filters.edited
-)
-async def clear_queue(_, message):
-    try:
-        QUEUE.pop(message.chat.id)
-    except KeyError:
-        return await eor(message, "Queue Not Found !")
-    # Todo - Clear Remaining Songs
-    return await eor(message, "Cleared Queue...")
+@vc_asst("queue")
+async def lstqueue(event):
+    if len(event.text.split()) > 1:
+        chat = event.text.split()[1]
+        if not chat.startswith("@"):
+            chat = int(chat)
+        try:
+            chat = int("-100" + str((await vcClient.get_entity(chat)).id))
+        except Exception as e:
+            return await eor(event, get_string("vcbot_2").format(str(e)))
+    else:
+        chat = event.chat_id
+    q = list_queue(chat)
+    if not q:
+        return await eor(event, get_string('vcbot_21'))
+    await eor(event, "• <strong>Queue:</strong>\n\n{}".format(q), parse_mode="html")
 
-
-@Client.on_message(
-    filters.outgoing & filters.command("clearqueue", HNDLR) & ~filters.edited
-)
-async def clearqueue_vc(_, message):
-    await clear_queue(_, message)
-
-
-@asst.on_message(
-    filters.command(["queue", f"queue@{vcusername}"])
-    & filters.user(VC_AUTHS())
-    & ~filters.edited
-)
-async def queuee(_, e):
-    mst = e.text.split(" ", maxsplit=1)
-    try:
-        chat = (await Client.get_chat(mst[1])).id
-    except BaseException:
-        chat = e.chat.id
-    txt = list_queue(chat)
-    if txt:
-        return await eor(e, txt)
-    await eor(e, "No Queue Found !")
-
-
-@Client.on_message(filters.outgoing & filters.command("queue", HNDLR) & ~filters.edited)
-async def queue_vc(_, message):
-    await queuee(_, message)
+@vc_asst("clearqueue")
+async def clean_queue(event):
+    if len(event.text.split()) > 1:
+        chat = event.text.split()[1]
+        if not chat.startswith("@"):
+            chat = int(chat)
+        try:
+            chat = int("-100" + str((await vcClient.get_entity(chat)).id))
+        except Exception as e:
+            return await eor(event, "**ERROR:**\n{}".format(str(e)))
+    else:
+        chat = event.chat_id
+    if VC_QUEUE.get(chat):
+        VC_QUEUE.pop(chat)
+    await eor(event, get_string('vcbot_22'), time=5)

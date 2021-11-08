@@ -18,9 +18,18 @@ import os
 import random
 
 from PIL import Image, ImageDraw, ImageFont
+from pyUltroid.functions.misc import unsplashsearch
 from telethon.tl.types import InputMessagesFilterPhotos
 
-from . import *
+from . import (
+    OWNER_ID,
+    OWNER_NAME,
+    download_file,
+    eor,
+    get_string,
+    mediainfo,
+    ultroid_cmd,
+)
 
 
 @ultroid_cmd(pattern="logo ?(.*)")
@@ -28,8 +37,8 @@ async def logo_gen(event):
     xx = await eor(event, get_string("com_1"))
     name = event.pattern_match.group(1)
     if not name:
-        await eod(xx, "`Give a name too!`")
-    bg_, font_ = "", ""
+        await eor(xx, "`Give a name too!`", time=5)
+    bg_, font_ = None, None
     if event.reply_to_msg_id:
         temp = await event.get_reply_message()
         if temp.media:
@@ -40,24 +49,20 @@ async def logo_gen(event):
                     font_ = await temp.download_media()
             elif "pic" in mediainfo(temp.media):
                 bg_ = await temp.download_media()
-    else:
-        pics = []
-        async for i in event.client.iter_messages(
-            "@UltroidLogos", filter=InputMessagesFilterPhotos
-        ):
-            pics.append(i)
-        id_ = random.choice(pics)
-        bg_ = await id_.download_media()
-        fpath_ = glob.glob("resources/fonts/*")
-        font_ = random.choice(fpath_)
     if not bg_:
-        pics = []
-        async for i in event.client.iter_messages(
-            "@UltroidLogos", filter=InputMessagesFilterPhotos
-        ):
-            pics.append(i)
-        id_ = random.choice(pics)
-        bg_ = await id_.download_media()
+        if event.client._bot:
+            SRCH = ["blur background", "background", "neon lights", "wallpaper"]
+            res = await unsplashsearch(random.choice(SRCH), limit=1)
+            bg_ = await download_file(res[0], "resources/downloads/logo.png")
+        else:
+            pics = []
+            async for i in event.client.iter_messages(
+                "@UltroidLogos", filter=InputMessagesFilterPhotos
+            ):
+                pics.append(i)
+            id_ = random.choice(pics)
+            bg_ = await id_.download_media()
+
     if not font_:
         fpath_ = glob.glob("resources/fonts/*")
         font_ = random.choice(fpath_)
@@ -87,7 +92,7 @@ async def logo_gen(event):
     draw.text(
         (x, y), name, font=font, fill="white", stroke_width=strke, stroke_fill="black"
     )
-    flnme = f"ultd.png"
+    flnme = "ultd.png"
     img.save(flnme, "png")
     await xx.edit("`Done!`")
     if os.path.exists(flnme):
@@ -101,6 +106,5 @@ async def logo_gen(event):
         await xx.delete()
     if os.path.exists(bg_):
         os.remove(bg_)
-    if os.path.exists(font_):
-        if not font_.startswith("resources/fonts"):
-            os.remove(font_)
+    if os.path.exists(font_) and not font_.startswith("resources/fonts"):
+        os.remove(font_)

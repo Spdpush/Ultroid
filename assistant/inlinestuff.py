@@ -6,30 +6,29 @@
 # <https://www.github.com/TeamUltroid/Ultroid/blob/main/LICENSE/>.
 
 import base64
+from datetime import datetime
 from random import choice
 from re import compile as re_compile
-from re import findall
 
 import requests
-from bs4 import BeautifulSoup
-from orangefoxapi import OrangeFoxAPI
-from play_scraper import search
-from search_engine_parser import GoogleSearch, YahooSearch
+from bs4 import BeautifulSoup as bs
+from pyUltroid.functions.misc import google_search
+from pyUltroid.functions.tools import async_searcher, dloader, get_ofox
 from telethon import Button
 from telethon.tl.types import InputWebDocument as wb
 
-from plugins._inline import SUP_BUTTONS
-
 from . import *
-from . import humanbytes as hb
+
+SUP_BUTTONS = [
+    [
+        Button.url("• Repo •", url="https://github.com/TeamUltroid/Ultroid"),
+        Button.url("• Support •", url="t.me/UltroidSupport"),
+    ],
+]
 
 ofox = "https://telegra.ph/file/231f0049fcd722824f13b.jpg"
 gugirl = "https://telegra.ph/file/0df54ae4541abca96aa11.jpg"
-yeah = "https://telegra.ph/file/e3c67885e16a194937516.jpg"
-ps = "https://telegra.ph/file/de0b8d9c858c62fae3b6e.jpg"
 ultpic = "https://telegra.ph/file/4136aa1650bc9d4109cc5.jpg"
-
-ofox_api = OrangeFoxAPI()
 
 api1 = base64.b64decode("QUl6YVN5QXlEQnNZM1dSdEI1WVBDNmFCX3c4SkF5NlpkWE5jNkZV").decode(
     "ascii"
@@ -42,9 +41,9 @@ api3 = base64.b64decode("QUl6YVN5RGRPS253blB3VklRX2xiSDVzWUU0Rm9YakFLSVFWMERR").
 )
 
 
-@in_pattern("ofox")
-@in_owner
+@in_pattern("ofox", owner=True)
 async def _(e):
+    match = None
     try:
         match = e.text.split(" ", maxsplit=1)[1]
     except IndexError:
@@ -54,39 +53,43 @@ async def _(e):
             text="**OFᴏx🦊Rᴇᴄᴏᴠᴇʀʏ**\n\nYou didn't search anything",
             buttons=Button.switch_inline("Sᴇᴀʀᴄʜ Aɢᴀɪɴ", query="ofox ", same_peer=True),
         )
-        await e.answer([kkkk])
-    a = ofox_api.releases(codename=match)
-    c = ofox_api.devices(codename=match)
-    if len(a.data) > 0:
+        return await e.answer([kkkk])
+    device, releases = await get_ofox(match)
+    if device.get("detail") is None:
         fox = []
-        for b in a.data:
-            ver = b.version
-            release = b.type
-            size = hb(b.size)
-            for z in c.data:
-                fullname = z.full_name
-                code = z.codename
-                link = f"https://orangefox.download/device/{code}"
-                text = f"**••OʀᴀɴɢᴇFᴏx Rᴇᴄᴏᴠᴇʀʏ Fᴏʀ•[•]({ofox})** {fullname}\n"
-                text += f"**••Cᴏᴅᴇɴᴀᴍᴇ••** {code}\n"
-                text += f"**••Bᴜɪʟᴅ Tʏᴘᴇ••** {release}\n"
-                text += f"**••Vᴇʀsɪᴏɴ••** {ver}\n"
-                text += f"**••Sɪᴢᴇ••** {size}\n"
-                fox.append(
-                    await e.builder.article(
-                        title=f"{fullname}",
-                        description=f"{ver}\n{release}",
-                        text=text,
-                        thumb=wb(ofox, 0, "image/jpeg", []),
-                        link_preview=True,
-                        buttons=[
-                            Button.url("Dᴏᴡɴʟᴏᴀᴅ", url=f"{link}"),
-                            Button.switch_inline(
-                                "Sᴇᴀʀᴄʜ Aɢᴀɪɴ", query="ofox ", same_peer=True
-                            ),
-                        ],
-                    )
+        fullname = device["full_name"]
+        codename = device["codename"]
+        str(device["supported"])
+        maintainer = device["maintainer"]["name"]
+        link = f"https://orangefox.download/device/{codename}"
+        for data in releases["data"]:
+            release = data["type"]
+            version = data["version"]
+            size = humanbytes(data["size"])
+            release_date = datetime.utcfromtimestamp(data["date"]).strftime("%Y-%m-%d")
+            text = f"[\xad]({ofox})**OʀᴀɴɢᴇFᴏx Rᴇᴄᴏᴠᴇʀʏ Fᴏʀ**\n\n"
+            text += f"`  Fᴜʟʟ Nᴀᴍᴇ: {fullname}`\n"
+            text += f"`  Cᴏᴅᴇɴᴀᴍᴇ: {codename}`\n"
+            text += f"`  Mᴀɪɴᴛᴀɪɴᴇʀ: {maintainer}`\n"
+            text += f"`  Bᴜɪʟᴅ Tʏᴘᴇ: {release}`\n"
+            text += f"`  Vᴇʀsɪᴏɴ: {version}`\n"
+            text += f"`  Sɪᴢᴇ: {size}`\n"
+            text += f"`  Bᴜɪʟᴅ Dᴀᴛᴇ: {release_date}`"
+            fox.append(
+                await e.builder.article(
+                    title=f"{fullname}",
+                    description=f"{version}\n{release_date}",
+                    text=text,
+                    thumb=wb(ofox, 0, "image/jpeg", []),
+                    link_preview=True,
+                    buttons=[
+                        Button.url("Dᴏᴡɴʟᴏᴀᴅ", url=f"{link}"),
+                        Button.switch_inline(
+                            "Sᴇᴀʀᴄʜ Aɢᴀɪɴ", query="ofox ", same_peer=True
+                        ),
+                    ],
                 )
+            )
         await e.answer(
             fox, switch_pm="OrangeFox Recovery Search.", switch_pm_param="start"
         )
@@ -96,8 +99,7 @@ async def _(e):
         )
 
 
-@in_pattern("fl2lnk ?(.*)")
-@in_owner
+@in_pattern("fl2lnk ?(.*)", owner=True)
 async def _(e):
     file_path = e.pattern_match.group(1)
     file_name = file_path.split("/")[-1]
@@ -133,8 +135,8 @@ async def _(e):
     re_compile(
         "fl(.*)",
     ),
+    owner=True,
 )
-@owner
 async def _(e):
     t = (e.data).decode("UTF-8")
     data = t[2:]
@@ -145,8 +147,7 @@ async def _(e):
     await dloader(e, host, file)
 
 
-@in_pattern("repo")
-@in_owner
+@in_pattern("repo", owner=True)
 async def repo(e):
     res = [
         await e.builder.article(
@@ -160,34 +161,21 @@ async def repo(e):
     await e.answer(res, switch_pm="Ultroid Repo.", switch_pm_param="start")
 
 
-@in_pattern("go")
-@in_owner
+@in_pattern("go", owner=True)
 async def gsearch(q_event):
     try:
         match = q_event.text.split(" ", maxsplit=1)[1]
     except IndexError:
-        await q_event.answer(
+        return await q_event.answer(
             [], switch_pm="Google Search. Enter a query!", switch_pm_param="start"
         )
     searcher = []
-    page = findall(r"page=\d+", match)
-    cache = False
-    try:
-        page = page[0]
-        page = page.replace("page=", "")
-        match = match.replace("page=" + page[0], "")
-    except IndexError:
-        page = 1
-    search_args = (str(match), int(page), bool(cache))
-    gsearch = GoogleSearch()
-    gresults = await gsearch.async_search(*search_args)
-    msg = ""
-    for i in range(len(gresults["links"])):
+    gresults = await google_search(match)
+    for i in gresults:
         try:
-            title = gresults["titles"][i]
-            link = gresults["links"][i]
-            desc = gresults["descriptions"][i]
-            msg += f"👉[{title}]({link})\n`{desc}`\n\n"
+            title = i["title"]
+            link = i["link"]
+            desc = i["description"]
             searcher.append(
                 await q_event.builder.article(
                     title=title,
@@ -217,115 +205,7 @@ async def gsearch(q_event):
     await q_event.answer(searcher, switch_pm="Google Search.", switch_pm_param="start")
 
 
-@in_pattern("yahoo")
-@in_owner
-async def yahoosearch(q_event):
-    try:
-        match = q_event.text.split(" ", maxsplit=1)[1]
-    except IndexError:
-        await q_event.answer(
-            [], switch_pm="Yahoo Search. Enter a query!", switch_pm_param="start"
-        )
-    searcher = []
-    page = findall(r"page=\d+", match)
-    cache = False
-    try:
-        page = page[0]
-        page = page.replace("page=", "")
-        match = match.replace("page=" + page[0], "")
-    except IndexError:
-        page = 1
-    search_args = (str(match), int(page), bool(cache))
-    gsearch = YahooSearch()
-    gresults = await gsearch.async_search(*search_args)
-    msg = ""
-    for i in range(len(gresults["links"])):
-        try:
-            title = gresults["titles"][i]
-            link = gresults["links"][i]
-            desc = gresults["descriptions"][i]
-            msg += f"👉[{title}]({link})\n`{desc}`\n\n"
-            searcher.append(
-                await q_event.builder.article(
-                    title=title,
-                    description=desc,
-                    thumb=wb(yeah, 0, "image/jpeg", []),
-                    text=f"**Yᴀʜᴏᴏ Sᴇᴀʀᴄʜ**\n\n**••Tɪᴛʟᴇ••**\n`{title}`\n\n**••Dᴇsᴄʀɪᴘᴛɪᴏɴ••**\n`{desc}`",
-                    link_preview=False,
-                    buttons=[
-                        [Button.url("Lɪɴᴋ", url=f"{link}")],
-                        [
-                            Button.switch_inline(
-                                "Sᴇᴀʀᴄʜ Aɢᴀɪɴ",
-                                query="yahoo ",
-                                same_peer=True,
-                            ),
-                            Button.switch_inline(
-                                "Sʜᴀʀᴇ",
-                                query=f"yahoo {match}",
-                                same_peer=False,
-                            ),
-                        ],
-                    ],
-                ),
-            )
-        except IndexError:
-            break
-    await q_event.answer(searcher, switch_pm="Yahoo Search.", switch_pm_param="start")
-
-
-@in_pattern("app")
-@in_owner
-async def _(e):
-    try:
-        f = e.text.split(" ", maxsplit=1)[1]
-    except IndexError:
-        await e.answer(
-            [], switch_pm="App search. Enter app name!", switch_pm_param="start"
-        )
-    foles = []
-    aap = search(f)
-    for z in aap:
-        name = z["title"]
-        desc = z["description"]
-        price = z["price"]
-        dev = z["developer"]
-        icon = z["icon"]
-        url = z["url"]
-        ids = z["app_id"]
-        text = f"**••Aᴘᴘ Nᴀᴍᴇ••** [{name}]({icon})\n"
-        text += f"**••Dᴇᴠᴇʟᴏᴘᴇʀ••** `{dev}`\n"
-        text += f"**••Pʀɪᴄᴇ••** `{price}`\n\n"
-        text += f"**••Dᴇsᴄʀɪᴘᴛɪᴏɴ••**\n`{desc}`"
-        foles.append(
-            await e.builder.article(
-                title=name,
-                description=ids,
-                thumb=wb(ps, 0, "image/jpeg", []),
-                text=text,
-                link_preview=True,
-                buttons=[
-                    [Button.url("Lɪɴᴋ", url=f"https://play.google.com{url}")],
-                    [
-                        Button.switch_inline(
-                            "Mᴏʀᴇ Aᴘᴘs",
-                            query="app ",
-                            same_peer=True,
-                        ),
-                        Button.switch_inline(
-                            "Sʜᴀʀᴇ",
-                            query=f"app {f}",
-                            same_peer=False,
-                        ),
-                    ],
-                ],
-            ),
-        )
-    await e.answer(foles, switch_pm="Application Searcher.", switch_pm_param="start")
-
-
-@in_pattern("mods")
-@in_owner
+@in_pattern("mods", owner=True)
 async def _(e):
     try:
         quer = e.text.split(" ", maxsplit=1)[1]
@@ -373,60 +253,153 @@ async def _(e):
     await e.answer(modss, switch_pm="Search Mod Applications.", switch_pm_param="start")
 
 
-@in_pattern("ebooks")
-@in_owner
-async def clip(e):
+# Inspired by @FindXDaBot
+
+
+@in_pattern("xda", owner=True)
+async def xda_dev(event):
+    QUERY = event.text.split(" ", maxsplit=1)
     try:
-        quer = e.text.split(" ", maxsplit=1)[1]
+        query = QUERY[1]
     except IndexError:
-        await e.answer(
-            [], switch_pm="Enter Query to Look for EBook", switch_pm_param="start"
+        return await event.answer(
+            [], switch_pm=get_string("instu_3"), switch_pm_param="start"
         )
-        return
-    quer = quer.replace(" ", "+")
-    sear = f"http://www.gutenberg.org/ebooks/search/?query={quer}&submit_search=Go%21"
-    magma = requests.get(sear).content
-    bs = BeautifulSoup(magma, "html.parser", from_encoding="utf-8")
-    out = bs.find_all("img")
-    Alink = bs.find_all("a", "link")
-    if len(out) == 0:
-        return await e.answer(
-            [], switch_pm="No Results Found !", switch_pm_param="start"
-        )
-    buil = e.builder
-    dont_take = [
-        "Authors",
-        "Did you mean",
-        "Sort Alpha",
-        "Sort by",
-        "Subjects",
-        "Bookshelves",
-    ]
-    hm = []
-    titles = []
-    for num in Alink:
-        try:
-            rt = num.find("span", "title").text
-            if not rt.startswith(tuple(dont_take)):
-                titles.append(rt)
-        except BaseException:
-            pass
-    for rs in range(len(out)):
-        if "/cache/epub" in out[rs]["src"]:
-            link = out[rs]["src"]
-            num = link.split("/")[3]
-            link = "https://gutenberg.org" + link.replace("small", "medium")
-            file = wb(link, 0, "image/jpeg", [])
-            hm.append(
-                buil.article(
-                    title=titles[rs],
-                    type="photo",
-                    description="GutenBerg Search",
-                    thumb=file,
-                    content=file,
-                    include_media=True,
-                    text=f"**• Ebook Search**\n\n->> `{titles[rs]}`",
-                    buttons=Button.inline("Get as Doc", data=f"ebk_{num}"),
-                )
+    le = "https://www.xda-developers.com/search/" + query.replace(" ", "+")
+    ct = await async_searcher(le, re_content=True)
+    ml = bs(ct, "html.parser", from_encoding="utf-8")
+    ml = ml.find_all("div", re_compile("layout_post_"), id=re_compile("post-"))
+    out = []
+    for on in ml:
+        data = on.find_all("img", "xda_image")[0]
+        title = data["alt"]
+        thumb = data["src"]
+        hre = on.find_all("div", "item_content")[0].find("h4").find("a")["href"]
+        desc = on.find_all("div", "item_meta clearfix")[0].text
+        thumb = wb(thumb, 0, "image/jpeg", [])
+        text = f"[{title}]({hre})"
+        out.append(
+            await event.builder.article(
+                title=title, description=desc, url=hre, thumb=thumb, text=text
             )
-    await e.answer(hm, switch_pm="Ebooks Search", switch_pm_param="start")
+        )
+    uppar = "No Results Found :(" if not out else "|| XDA Search Results ||"
+    await event.answer(out, switch_pm=uppar, switch_pm_param="start")
+
+
+APP_CACHE = {}
+
+
+@in_pattern("app", owner=True)
+async def _(e):
+    try:
+        f = e.text.split(" ", maxsplit=1)[1]
+    except IndexError:
+        swa = get_string("instu_1")
+        res = []
+        if APP_CACHE:
+            [res.append(APP_CACHE[a][0]) for a in APP_CACHE.keys()]
+            swa = get_string("instu_2")
+        return await e.answer(res, switch_pm=swa, switch_pm_param="start")
+    try:
+        return await e.answer(
+            APP_CACHE[f], switch_pm="Application Searcher.", switch_pm_param="start"
+        )
+    except KeyError:
+        pass
+    foles = []
+    base_uri = "https://play.google.com"
+    url = f"{base_uri}/store/search?q={f.replace(' ', '%20')}&c=apps"
+    aap = await async_searcher(url, re_content=True)
+    b_ = bs(aap, "html.parser", from_encoding="utf-8")
+    aap = b_.find_all("div", "Vpfmgd")
+    for z in aap[:10]:
+        url = base_uri + z.find("a")["href"]
+        scra = await async_searcher(url, re_content=True)
+        bp = bs(scra, "html.parser", from_encoding="utf-8")
+        name = z.find("div", "WsMG1c nnK0zc")["title"]
+        desc = (
+            str(bp.find("div", jsname="sngebd"))
+            .replace('<div jsname="sngebd">', "")
+            .replace("<br/>", "\n")
+            .replace("</div>", "")[:300]
+            + "..."
+        )
+        dev = z.find("div", "KoLSrc").text
+        icon = z.find("img", "T75of QNCnCf")["data-src"]
+        text = f"**••Aᴘᴘ Nᴀᴍᴇ••** [{name}]({icon})\n"
+        text += f"**••Dᴇᴠᴇʟᴏᴘᴇʀ••** `{dev}`\n"
+        text += f"**••Dᴇsᴄʀɪᴘᴛɪᴏɴ••**\n`{desc}`"
+        foles.append(
+            await e.builder.article(
+                title=name,
+                description=dev,
+                thumb=wb(icon, 0, "image/jpeg", []),
+                text=text,
+                link_preview=True,
+                buttons=[
+                    [Button.url("Lɪɴᴋ", url=url)],
+                    [
+                        Button.switch_inline(
+                            "Mᴏʀᴇ Aᴘᴘs",
+                            query="app ",
+                            same_peer=True,
+                        ),
+                        Button.switch_inline(
+                            "Sʜᴀʀᴇ",
+                            query=f"app {f}",
+                            same_peer=False,
+                        ),
+                    ],
+                ],
+            ),
+        )
+    APP_CACHE.update({f: foles})
+    await e.answer(foles, switch_pm="Application Searcher.", switch_pm_param="start")
+
+
+PISTON_URI = "https://emkc.org/api/v2/piston/"
+PISTON_LANGS = {}
+
+
+@in_pattern("run", owner=True)
+async def piston_run(event):
+    try:
+        lang = event.text.split()[1]
+        code = event.text.split(maxsplit=2)[2]
+    except IndexError:
+        result = await event.builder.article(
+            title="Bad Query",
+            description="Usage: [Language] [code]",
+            text=f'**Inline Usage**\n\n`@{asst.me.username} run python print("hello world")`\n\n[Language List](https://telegra.ph/Ultroid-09-01-6)',
+        )
+        return await event.answer([result])
+    if not PISTON_LANGS:
+        se = await async_searcher(PISTON_URI + "runtimes", re_json=True)
+        PISTON_LANGS.update({lang.pop("language"): lang for lang in se})
+    if lang in PISTON_LANGS.keys():
+        version = PISTON_LANGS[lang]["version"]
+    else:
+        result = await event.builder.article(
+            title="Unsupported Language",
+            description="Usage: [Language] [code]",
+            text=f'**Inline Usage**\n\n`@{asst.me.username} run python print("hello world")`\n\n[Language List](https://telegra.ph/Ultroid-09-01-6)',
+        )
+        return await event.answer([result])
+    output = (
+        await async_searcher(
+            PISTON_URI + "execute",
+            post=True,
+            json={"language": lang, "version": version, "files": [{"content": code}]},
+            re_json=True,
+        )
+    )["run"]["output"] or get_string("instu_4")
+    if len(output) > 3000:
+        output = output[:3000] + "..."
+    result = await event.builder.article(
+        title="Result",
+        description=output,
+        text=f"• **Language:**\n`{lang}`\n\n• **Code:**\n`{code}`\n\n• **Result:**\n`{output}`",
+        buttons=Button.switch_inline("Fork", query=event.text, same_peer=True),
+    )
+    await event.answer([result], switch_pm="• Piston •", switch_pm_param="start")
